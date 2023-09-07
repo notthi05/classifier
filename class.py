@@ -4,9 +4,11 @@ from torch.utils.data import DataLoader, TensorDataset
 from transformers import BertTokenizer, BertForSequenceClassification, AdamW
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score
+import numpy as np
+from sklearn.metrics import roc_auc_score
 
 # データの読み込み
-df = pd.read_csv('data.csv', encoding='UTF-8')
+df = pd.read_csv('Reuro.csv', encoding='UTF-8', sep=';')
 
 # テキストデータを小文字化
 df['text'] = df['text'].str.lower()
@@ -89,21 +91,29 @@ with torch.no_grad():
 
         outputs = model(inputs, attention_mask=masks)
         logits = outputs.logits
-        predicted = torch.argmax(logits, dim=1).cpu().numpy()
 
-        all_predictions.extend(predicted)
+        # ソフトマックス関数を使用して確率に変換
+        probabilities = torch.softmax(logits, dim=1)
+
+        predicted = torch.argmax(probabilities, dim=1).cpu().numpy()
+
+        all_predictions.extend(probabilities.cpu().numpy())  # 確率を追加
         all_labels.extend(labels.cpu().numpy())
 
+predicted_labels = np.argmax(all_predictions, axis=1)
+
 # 混同行列
-confusion = confusion_matrix(all_labels, all_predictions)
+confusion = confusion_matrix(all_labels, predicted_labels)
 print("Confusion Matrix:")
 print(confusion)
 
 # Precision, Recall, F1-score
-report = classification_report(all_labels, all_predictions, target_names=['Class 0', 'Class 1', 'Class 2'])
+report = classification_report(all_labels, predicted_labels, target_names=['Class 0', 'Class 1', 'Class 2'])
 print("Classification Report:")
 print(report)
 
 # AUC
+all_labels = np.array(all_labels).reshape(-1, 1)
+all_predictions = np.array(all_predictions)
 auc = roc_auc_score(all_labels, all_predictions, multi_class='ovr', average='macro')
 print(f"AUC: {auc:.4f}")
