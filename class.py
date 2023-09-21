@@ -7,18 +7,19 @@ from sklearn.metrics import confusion_matrix, classification_report, roc_auc_sco
 import numpy as np
 from sklearn.metrics import roc_auc_score
 
-# データの読み込み
-df = pd.read_csv('Reuro.csv', encoding='UTF-8', sep=';')
+# 教師データとテストデータの読み込み
+train_df = pd.read_csv('Feuro.csv', encoding='UTF-8', sep=';')
+test_df = pd.read_csv('test_city.csv', encoding='UTF-8', sep=';')
 
-# テキストデータを小文字化
-df['text'] = df['text'].str.lower()
+# データの前処理（小文字化）
+train_df['text'] = train_df['text'].str.lower()
+test_df['text'] = test_df['text'].str.lower()
 
 # 入力データとラベルの抽出
-texts = df['text'].values
-labels = df['label'].values
-
-# データの分割
-train_texts, test_texts, train_labels, test_labels = train_test_split(texts, labels, test_size=0.3, random_state=42)
+train_texts = train_df['text'].values
+train_labels = train_df['label'].values
+test_texts = test_df['text'].values
+test_labels = test_df['label'].values
 
 # BERTのトークナイザーの準備
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
@@ -112,8 +113,17 @@ report = classification_report(all_labels, predicted_labels, target_names=['Clas
 print("Classification Report:")
 print(report)
 
-# AUC
-all_labels = np.array(all_labels).reshape(-1, 1)
-all_predictions = np.array(all_predictions)
-auc = roc_auc_score(all_labels, all_predictions, multi_class='ovr', average='macro')
-print(f"AUC: {auc:.4f}")
+class_auc_scores = []
+for class_index in range(3):
+    # クラスごとの真のラベルと確率を抽出
+    class_true_labels = [1 if label == class_index else 0 for label in all_labels]
+    class_probabilities = [probability[class_index] for probability in all_predictions]
+
+    # クラスごとのAUCを計算
+    class_auc = roc_auc_score(class_true_labels, class_probabilities)
+    class_auc_scores.append(class_auc)
+    print(f"Class {class_index} AUC: {class_auc:.4f}")
+
+# 平均AUC（マクロ平均）を計算
+macro_auc = np.mean(class_auc_scores)
+print(f"Macro-average AUC: {macro_auc:.4f}")
