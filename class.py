@@ -8,8 +8,8 @@ import numpy as np
 from sklearn.metrics import roc_auc_score
 
 # 教師データとテストデータの読み込み
-train_df = pd.read_csv('Feuro.csv', encoding='UTF-8', sep=';')
-test_df = pd.read_csv('test_city.csv', encoding='UTF-8', sep=';')
+train_df = pd.read_csv('train_euro.csv', encoding='UTF-8', sep=';')
+test_df = pd.read_csv('test_euro.csv', encoding='UTF-8', sep=';')
 
 # データの前処理（小文字化）
 train_df['text'] = train_df['text'].str.lower()
@@ -102,6 +102,12 @@ with torch.no_grad():
         all_labels.extend(labels.cpu().numpy())
 
 predicted_labels = np.argmax(all_predictions, axis=1)
+
+# 予測結果を含むデータフレームを作成
+results_df = pd.DataFrame({'True_Label': all_labels, 'Predicted_Label': predicted_labels, 'Text': test_texts,})
+
+# CSVファイルに保存
+results_df.to_csv('classification_results.csv', index=False)
 
 # 混同行列
 confusion = confusion_matrix(all_labels, predicted_labels)
