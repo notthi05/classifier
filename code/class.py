@@ -7,17 +7,13 @@ from sklearn.metrics import confusion_matrix, classification_report, roc_auc_sco
 import numpy as np
 from sklearn.metrics import roc_auc_score
 
-# 教師データとテストデータの読み込み
-train_df = pd.read_csv('train_euro.csv', encoding='UTF-8', sep=';')
-test_df = pd.read_csv('test_euro.csv', encoding='UTF-8', sep=';')
+# テストデータの読み込み
+test_df = pd.read_csv('test_filename.csv', encoding='UTF-8', sep=';')
 
 # データの前処理（小文字化）
-train_df['text'] = train_df['text'].str.lower()
 test_df['text'] = test_df['text'].str.lower()
 
 # 入力データとラベルの抽出
-train_texts = train_df['text'].values
-train_labels = train_df['label'].values
 test_texts = test_df['text'].values
 test_labels = test_df['label'].values
 
@@ -25,26 +21,20 @@ test_labels = test_df['label'].values
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
 # データのトークン化とエンコーディング
-train_encodings = tokenizer(list(train_texts), truncation=True, padding=True, max_length=128)
 test_encodings = tokenizer(list(test_texts), truncation=True, padding=True, max_length=128)
 
 # 入力データと注意マスクのテンソル化
-train_inputs = torch.tensor(train_encodings['input_ids'])
-train_masks = torch.tensor(train_encodings['attention_mask'])
-train_labels = torch.tensor(train_labels)
 test_inputs = torch.tensor(test_encodings['input_ids'])
 test_masks = torch.tensor(test_encodings['attention_mask'])
 test_labels = torch.tensor(test_labels)
 
 # データセットの作成
-train_dataset = TensorDataset(train_inputs, train_masks, train_labels)
 test_dataset = TensorDataset(test_inputs, test_masks, test_labels)
 
 # バッチサイズの設定
 batch_size = 32
 
 # データローダーの作成
-train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 test_dataloader = DataLoader(test_dataset, batch_size=batch_size)
 
 # BERTモデルの準備
@@ -61,24 +51,8 @@ optimizer = AdamW(model.parameters(), lr=3e-5)
 # 最大エポック数の設定
 num_epochs = 10
 
-# 学習ループ
-for epoch in range(num_epochs):
-    model.train()
-    total_loss = 0
-
-    for batch in train_dataloader:
-        batch = tuple(t.to(device) for t in batch)
-        inputs, masks, labels = batch
-
-        optimizer.zero_grad()
-        outputs = model(inputs, attention_mask=masks, labels=labels)
-        loss = outputs.loss
-        loss.backward()
-        optimizer.step()
-        total_loss += loss.item()
-
-    avg_loss = total_loss / len(train_dataloader)
-    print(f'Epoch {epoch+1}/{num_epochs} - Avg Loss: {avg_loss:.4f}')
+# 保存したモデルの読み込み
+model.load_state_dict(torch.load('model_x.pth'))
 
 # テストデータでの予測と評価
 model.eval()
@@ -104,10 +78,13 @@ with torch.no_grad():
 predicted_labels = np.argmax(all_predictions, axis=1)
 
 # 予測結果を含むデータフレームを作成
-results_df = pd.DataFrame({'True_Label': all_labels, 'Predicted_Label': predicted_labels, 'Text': test_texts,})
+results_df = pd.DataFrame({'True_Label': all_labels,
+                            'Predicted_Label': predicted_labels,
+                            'Text': test_texts
+                            })
 
 # CSVファイルに保存
-results_df.to_csv('classification_results.csv', index=False)
+results_df.to_csv('results.csv', index=False)
 
 # 混同行列
 confusion = confusion_matrix(all_labels, predicted_labels)
